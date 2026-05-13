@@ -1,0 +1,69 @@
+body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
+
+/* TELAS DE INTERFACE */
+#start-screen, #briefing-modal, #victory-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1000; display: flex; justify-content: center; align-items: center;
+}
+
+#start-screen { background: radial-gradient(circle, #0a0a0a 0%, #000 100%); color: #00ff66; text-align: center; }
+
+/* CARTA DE MISSÃO */
+.briefing-paper {
+    background: #e0e0e0; color: #1a1a1a; padding: 40px; width: 90%; max-width: 450px;
+    border-left: 10px solid #00ff66; box-shadow: 10px 10px 0px #005522;
+}
+.briefing-header { font-weight: bold; border-bottom: 2px solid #333; margin-bottom: 20px; }
+
+/* VITÓRIA */
+#victory-screen { background: rgba(0, 10, 0, 0.95); z-index: 3000; color: #00ff66; }
+.victory-content { border: 2px solid #00ff66; padding: 40px; background: #000; text-align: center; }
+.stats { margin: 20px 0; text-align: left; border: 1px dashed #00ff66; padding: 15px; }
+
+/* HUD E BOTÕES */
+#progress { position: fixed; top: 20px; left: 20px; color: #00ff66; font-size: 1.2rem; z-index: 500; }
+#question-modal {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0, 20, 0, 0.95); border: 2px solid #00ff66; padding: 30px; z-index: 2000; color: #00ff66; width: 350px;
+}
+.option-btn, #close-briefing, #start-button {
+    background: #002200; border: 1px solid #00ff66; color: #00ff66; padding: 10px; cursor: pointer; margin-top: 10px; width: 100%; font-family: inherit;
+}
+.option-btn:hover { background: #00ff66; color: #000; }
+
+.glitch { font-size: 3.5rem; text-shadow: 0 0 10px #00ff66; }
+.overlay { position: absolute; width: 100%; height: 100%; background: repeating-linear-gradient(rgba(0,0,0,0.1) 0px, transparent 2px); pointer-events: none; }
+
+/* Efeito de piscar para o alerta de emergência */
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+/* Estilo para o título com efeito de profundidade neon */
+.glitch {
+    color: #00ff66;
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 10px #00ff66, 0 0 20px #00ff66;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); text-shadow: 0 0 10px #00ff66; }
+    50% { transform: scale(1.02); text-shadow: 0 0 20px #00ff66; }
+    100% { transform: scale(1); text-shadow: 0 0 10px #00ff66; }
+}
+
+/* Configuração das telas sobrepostas */
+#start-screen, #victory-screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: black;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
