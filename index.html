@@ -5,6 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESCAPE OS - Final Fix</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.2; }
+            100% { opacity: 1; }
+        }
+
+        /* Garante que a nova tela de fracasso tenha o mesmo comportamento centralizado da vitória */
+        #failure-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 0, 0, 0.9); /* Fundo escuro levemente avermelhado */
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        .failure-content {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border: 2px solid #ff3333;
+            box-shadow: 0 0 20px #ff0000;
+            max-width: 500px;
+        }
+
+        .failure-btn {
+            background: #ff3333;
+            color: #fff;
+            border: 1px solid #ff0000;
+            padding: 12px 25px;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ff0000;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+
+        .failure-btn:hover {
+            background: #ff0000;
+            box-shadow: 0 0 15px #ff3333;
+        }
+
+        /* Efeito hover para destacar o botão de fechar do terminal */
+        #close-modal-x:hover {
+            color: #ff0000 !important;
+            text-shadow: 0 0 10px #ff0000;
+        }
+    </style>
 </head>
 <body>
     <div id="start-screen">
@@ -13,9 +69,9 @@
             <h1 class="glitch">Escape OS: Kernel Panic</h1>
             <p class="subtitle">SISTEMA DE SEGURANÇA DISTRIBUÍDO v1.0</p>
             <button id="start-button">INICIALIZAR KERNEL</button>
-            <p style="color: #00ff66; font-family: 'Courier New', monospace; font-size: 0.9em;">
-    DESENVOLVIDO POR: ALEX, ADRIELE,  LEONARDO & ANDERSON
-    </p>
+            <p style="color: #00ff66; font-family: 'Courier New', monospace; font-size: 0.9em; margin-top: 20px;">
+                DESENVOLVIDO POR: ALEX, ADRIELE, LEONARDO & ANDERSON
+            </p>
         </div>
     </div>
 
@@ -25,7 +81,7 @@
             <div class="briefing-body">
                 <p><strong>STATUS:</strong> FALHA CRÍTICA NO CLUSTER DE SEGURANÇA.</p>
                 <p>Foram detectados 16 nós em estado de Deadlock. O Kernel corporativo está bloqueado e a integridade da memória está seriamente comprometida.</p>
-                <p><strong>MISSÃO:</strong> Acesse os terminais e execute os comandos de restauração necessários. Você deve estabilizar todos os setores para forçar a abertura do portal de saída antes do Kernel Panic total.</p>
+                <p><strong>MISSÃO:</strong>Acesse os terminais e execute os comandos de restauração necessários. Você deve estabilizar todos os setores para forçar a abertura do portal de acesso antes do Kernel Panic total.</p>
             </div>
             <button id="close-briefing">[ EXECUTAR PROTOCOLO DE REPARAÇÃO ]</button>
         </div>
@@ -39,50 +95,45 @@
         </div>
     </div>
 
+    <div id="failure-screen" style="display: none;">
+        <div class="failure-content">
+            <h1 class="glitch" style="color: #ff3333; text-shadow: 0 0 10px #ff0000; font-size: 2.5em; margin: 0 0 15px 0;">KERNEL PANIC</h1>
+            <p style="color: #ffffff; font-size: 1.1em; line-height: 1.5; margin: 0 0 25px 0;">
+                FALHA CRÍTICA: O tempo limite foi esgotado, os nós caíram e o cluster entrou em colapso total.
+            </p>
+            <button class="failure-btn" onclick="location.reload()">REINICIAR SISTEMA</button>
+        </div>
+    </div>
+
     <div id="ui-container" style="position: fixed; top: 50px; left: 50px; font-family: 'Courier New', monospace; pointer-events: none; z-index: 100;">
-    <!-- Status do Sistema -->
-    <div id="progress" style="color: #00ff66; font-size: 22px; text-shadow: 0 0 10px #00ff66; font-weight: bold;">
-        SISTEMA: VULNERÁVEL [0/16]
-    </div>
-    
-    <!-- Mensagem de Clique (Aparece ao chegar perto) -->
-    <div id="interact-msg" style="display: none; color: #ffffff; font-size: 16px; margin-top: 10px; background: rgba(0,0,0,0.6); padding: 5px; border: 1px solid #00ff66;">
-        [BOTÃO ESQUERDO] ACESSAR TERMINAL
-    </div>
+        
+        <div id="progress" style="color: #00ff66; font-size: 22px; text-shadow: 0 0 10px #00ff66; font-weight: bold;"></div>
 
-    <!-- Alerta de Expulsão -->
-    <div id="objective" style="display: none; margin-top: 25px; background: rgba(255, 0, 0, 0.3); border: 3px solid #ff0000; padding: 20px; backdrop-filter: blur(10px);">
-        <div style="color: #ff0000; font-size: 16px; font-weight: bold; letter-spacing: 3px; animation: blink 0.5s infinite; text-align: center;">
-            PERIGO: COLAPSO DO KERNEL
+        <div id="global-timer" style="color: #ff3333; font-size: 22px; text-shadow: 0 0 10px #ff0000; font-weight: bold; margin-top: 10px;">
+            TEMPO RESTANTE: 10:00
         </div>
-        <div style="color: #ffffff; font-size: 28px; margin-top: 15px; font-weight: 900; text-align: center;">
-            SAIA DA SALA AGORA!
+        
+        <div id="interact-msg" style="display: none; color: #ffffff; font-size: 16px; margin-top: 10px; background: rgba(0,0,0,0.6); padding: 5px; border: 1px solid #00ff66;">
+            [BOTÃO ESQUERDO] ACESSAR TERMINAL
+        </div>
+
+        <div id="objective" style="display: none; margin-top: 25px; background: rgba(255, 0, 0, 0.3); border: 3px solid #ff0000; padding: 20px; backdrop-filter: blur(10px);">
+            <div style="color: #ff0000; font-size: 16px; font-weight: bold; letter-spacing: 3px; animation: blink 0.5s infinite; text-align: center;">
+                PERIGO: COLAPSO DO KERNEL
+            </div>
+            <div style="color: #ffffff; font-size: 28px; margin-top: 15px; font-weight: 900; text-align: center;">
+                SAIA DA SALA AGORA!
+            </div>
         </div>
     </div>
-</div>
-
-<style>
-    @keyframes blink {
-        0% { opacity: 1; }
-        50% { opacity: 0.2; }
-        100% { opacity: 1; }
-    }
-</style>
-
-</div>
-
-<style>
-    @keyframes blink {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-</style>
 
     <div id="question-modal" style="display: none;">
-        <div class="modal-content">
-            <h2 id="q-text">CARREGANDO...</h2>
-            <div id="options-container"></div>
+        <div class="modal-content" style="position: relative; padding-top: 45px;">
+            
+            <span id="close-modal-x" style="position: absolute; top: 15px; right: 20px; color: #ff3333; font-size: 22px; font-weight: bold; cursor: pointer; font-family: 'Courier New', monospace; user-select: none; z-index: 10;">[X]</span>
+            
+            <h2 id="q-text" style="margin: 0; padding-right: 45px; font-size: 20px; text-align: left; line-height: 1.4;">CARREGANDO...</h2>
+            <div id="options-container" style="margin-top: 20px;"></div>
         </div>
     </div>
 

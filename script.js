@@ -2,6 +2,7 @@
 const startScreen = document.getElementById('start-screen');
 const briefingModal = document.getElementById('briefing-modal');
 const victoryScreen = document.getElementById('victory-screen');
+const failureScreen = document.getElementById('failure-screen'); 
 const startButton = document.getElementById('start-button');
 const closeBriefing = document.getElementById('close-briefing');
 
@@ -19,10 +20,84 @@ interactionMsg.style.display = 'none';
 interactionMsg.innerText = '[ CLIQUE PARA ACESSAR TERMINAL ]';
 document.body.appendChild(interactionMsg);
 
+// --- ESTADO DO CRONÔMETRO GLOBAL ---
+let totalTime = 600; // 10 minutos em segundos
+let timerInterval = null;
 let isGameOver = false;
 
-startButton.onclick = () => { startScreen.style.display = "none"; briefingModal.style.display = "flex"; };
-closeBriefing.onclick = () => { briefingModal.style.display = "none"; document.body.requestPointerLock(); };
+// Função que controla a contagem regressiva
+function startGlobalTimer() {
+    timerInterval = setInterval(() => {
+        if (isGameOver) {
+            clearInterval(timerInterval);
+            return;
+        }
+
+        totalTime--;
+
+        if (totalTime <= 0) {
+            totalTime = 0;
+            clearInterval(timerInterval);
+            handleKernelPanic(); // Tempo esgotado = Derrota para a tela de fracasso
+        }
+
+        // Formata o tempo para o padrão MM:SS
+        const minutes = Math.floor(totalTime / 60).toString().padStart(2, '0');
+        const seconds = (totalTime % 60).toString().padStart(2, '0');
+        
+        const timerEl = document.getElementById('global-timer');
+        if (timerEl) {
+            timerEl.innerText = `TEMPO RESTANTE: ${minutes}:${seconds}`;
+        }
+    }, 1000);
+}
+
+// Função executada em caso de derrota por tempo
+function handleKernelPanic() {
+    isGameOver = true;
+    clearInterval(timerInterval); 
+    document.exitPointerLock(); // Devolve o cursor do mouse para o usuário
+    
+    // Esconde o modal de perguntas caso ele esteja aberto na tela ao zerar o tempo
+    const questionModal = document.getElementById('question-modal');
+    if (questionModal) questionModal.style.display = 'none';
+    
+    // Oculta a interface de progresso/tempo do HUD do jogo para não poluir visualmente
+    const uiContainer = document.getElementById('ui-container');
+    if (uiContainer) uiContainer.style.display = 'none';
+    if (interactionMsg) interactionMsg.style.display = 'none';
+
+    // Ativa a tela de fracasso HTML customizada
+    if (failureScreen) {
+        failureScreen.style.display = 'flex';
+    }
+}
+
+startButton.onclick = () => { 
+    startScreen.style.display = "none"; 
+    briefingModal.style.display = "flex"; 
+};
+
+closeBriefing.onclick = () => { 
+    briefingModal.style.display = "none"; 
+    document.body.requestPointerLock(); 
+    
+    // Inicializa o HUD limpando resíduos estáticos com textContent
+    const progressEl = document.getElementById('progress');
+    if (progressEl) {
+        progressEl.textContent = `SISTEMA: VULNERÁVEL [${solvedCount} / 16]`;
+    }
+    
+    startGlobalTimer(); // Inicia o relógio perfeitamente aqui
+};
+
+// --- LOGICA DO BOTÃO [X] PARA FECHAR O TERMINAL ---
+const closeModalX = document.getElementById('close-modal-x');
+if (closeModalX) {
+    closeModalX.onclick = () => {
+        closeModal();
+    };
+}
 
 // --- CONFIGURAÇÃO 3D ---
 const scene = new THREE.Scene();
@@ -38,10 +113,22 @@ let solvedCount = 0;
 let currentMonitor = null;
 const computers = [];
 const questions = [
-    { q: "O que caracteriza um Deadlock?", opts: ["Excesso de RAM", "Bloqueio mútuo de processos", "Vírus de rede"], ans: 1 },
-    { q: "Qual a função do Kernel?", opts: ["Interface gráfica", "Gerenciar hardware", "Editar textos"], ans: 1 },
-    { q: "Sistemas Distribuídos são?", opts: ["PCs isolados", "Vários nós interconectados", "Um único servidor"], ans: 1 },
-    { q: "O comando 'chmod' serve para?", opts: ["Listar arquivos", "Alterar permissões", "Deletar pastas"], ans: 1 }
+    { q: "Qual a principal função do conceito de 'Máquina de Níveis'?", opts: ["Aumentar a frequência de clock", "Ocultar a complexidade do hardware", "Permitir execução no hardware puro", "Eliminar o gerenciamento de memória"], ans: 1 },
+    { q: "Qual a vantagem do DMA na comunicação com dispositivos?", opts: ["Executar polling do dispositivo", "Liberar a CPU de transferências de grandes volumes", "Reduzir latência da memória cache", "Fornecer segurança contra rootkits"], ans: 1 },
+    { q: "O que caracteriza um Loader Absoluto?", opts: ["Carregar o programa em endereço fixo", "Mover o programa durante a execução", "Funcionar apenas em 64 bits", "Não necessitar de endereçamento"], ans: 0 },
+    { q: "O que caracteriza o Pipelining como técnica de otimização?", opts: ["Uso de múltiplos núcleos físicos", "Divisão de instruções em etapas paralelas", "Substituição da memória física por virtual", "Gerenciamento externo de interrupções"], ans: 1 },
+    { q: "Qual o papel fundamental do Shell?", opts: ["Gerenciar sinais elétricos da ULA", "Traduzir linguagem de máquina", "Intermediar usuário e sistema operacional", "Executar a rotina física de boot"], ans: 2 },
+    { q: "O que define um sistema 'Fortemente Acoplado'?", opts: ["Memórias isoladas por processador", "Compartilhamento de uma única memória principal", "Comunicação exclusiva via rede", "Ausência de sistema operacional"], ans: 1 },
+    { q: "Por que a 'Espera Ocupada' é ineficiente?", opts: ["O processador fica ocioso", "A CPU é mantida ocupada inutilmente em um loop", "Causa travamento no barramento físico", "Impede o uso de interrupções"], ans: 1 },
+    { q: "Qual a função do Barramento de Endereços?", opts: ["Transportar dados entre CPU e Memória", "Sincronizar sinais de clock", "Especificar o local de acesso na memória", "Gerenciar periféricos de E/S"], ans: 2 },
+    { q: "O que define o Kernel no Linux?", opts: ["A interface gráfica do usuário", "O núcleo que gerencia hardware e processos", "Um aplicativo de edição de texto", "O conjunto de drivers pós-inicialização"], ans: 1 },
+    { q: "Qual a diferença entre Compilador e Interpretador?", opts: ["Compilador gera executável antes da execução", "Interpretador é mais rápido que código compilado", "Compilador roda direto no hardware", "Ambos funcionam de forma idêntica"], ans: 0 },
+    { q: "O que define um sistema operacional de Tempo Real (Hard)?", opts: ["Foco na interface gráfica", "Priorização de tarefas com prazos rígidos", "Redes de baixa velocidade", "Execução de tarefa única"], ans: 1 },
+    { q: "Qual a função do comando 'chmod' em um ambiente Linux?", opts: ["Listar arquivos de diretório", "Alterar permissões de acesso", "Deletar arquivos permanentemente", "Compilar código-fonte"], ans: 1 },
+    { q: "O que caracteriza um sistema operacional ser 'open source' como o Linux?", opts: ["O código-fonte é aberto para modificação", "O sistema é bloqueado para alterações", "Roda apenas em hardware licenciado", "Instalação obrigatória via mídia física"], ans: 0 },
+    { q: "Qual a função dos Utilitários?", opts: ["Suprir deficiências ou facilitar a manutenção", "Executar tarefas do Kernel", "Substituir dispositivos de E/S", "Controlar hardware diretamente"], ans: 0 },
+    { q: "O que é Multiprogramação?", opts: ["Uso exclusivo de múltiplos núcleos", "Maximizar uso da CPU mantendo programas na memória", "Divisão rígida da memória", "Segurança contra invasões"], ans: 1 },
+    { q: "O que é a Unidade Lógica e Aritmética (ULA)?", opts: ["Gerenciador de interrupções", "Unidade de salvamento de logs", "Subsistema que executa cálculos e lógica", "Gerente de memória virtual"], ans: 2 }
 ];
 
 // --- LUZES ---
@@ -121,7 +208,6 @@ const doorGroup = new THREE.Group();
 doorGroup.position.set(0, 4.5, -24.5); 
 scene.add(doorGroup);
 
-// Moldura mais robusta
 const frameMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.9, roughness: 0.1 });
 const fL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 9.5, 1.2), frameMat);
 fL.position.set(-3.4, 4.5, -24.5); scene.add(fL);
@@ -133,7 +219,6 @@ fT.position.set(0, 9.3, -24.5); scene.add(fT);
 const hinge = new THREE.Group();
 hinge.position.set(-3, 0, 0); doorGroup.add(hinge);
 
-// Material da porta com aparência metálica
 const doorMainMat = new THREE.MeshStandardMaterial({ 
     color: 0x1f1f1f, 
     metalness: 1.0, 
@@ -143,7 +228,6 @@ const doorMainMat = new THREE.MeshStandardMaterial({
 const doorMain = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 0.6), doorMainMat);
 doorMain.position.set(3, 0, 0); hinge.add(doorMain);
 
-// Detalhes da Porta (Painéis de Reforço)
 for(let i = -3; i <= 3; i += 3) {
     const detail = new THREE.Mesh(
         new THREE.BoxGeometry(5, 1.5, 0.2),
@@ -153,7 +237,6 @@ for(let i = -3; i <= 3; i += 3) {
     hinge.add(detail);
 }
 
-// Scanner de Acesso lateral
 const scannerBox = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.3), new THREE.MeshStandardMaterial({color: 0x222222}));
 scannerBox.position.set(3.8, 5, -24.1);
 scene.add(scannerBox);
@@ -165,11 +248,11 @@ const scannerLight = new THREE.Mesh(
 scannerLight.position.set(3.8, 5.1, -23.9);
 scene.add(scannerLight);
 
-// Atualização da Luz do Scanner na lógica de vitória
 function handleVictory() {
+    if (timerInterval) clearInterval(timerInterval); // Interrompe o cronômetro na vitória
     doorMain.visible = false; 
     hinge.visible = false; 
-    scannerLight.material.color.set(0x00ff00); // Muda o scanner para verde
+    scannerLight.material.color.set(0x00ff00); 
     
     const portalFinish = new THREE.Mesh(
         new THREE.PlaneGeometry(6, 9), 
@@ -184,14 +267,30 @@ function handleVictory() {
     
     ambient.intensity = 6; 
     doorLight.intensity = 0;
-    document.getElementById('progress').innerText = "SISTEMA: COMPROMETIDO [16 / 16]";
+
+    // Oculta o container antigo do cronômetro para evitar que fique por baixo da mensagem
+    const timerEl = document.getElementById('global-timer');
+    if (timerEl) {
+        timerEl.style.display = 'none';
+    }
+
+    const progressEl = document.getElementById('progress');
+    if (progressEl) {
+        progressEl.innerHTML = `
+            <div style="color: #00ff66; font-size: 22px; text-shadow: 0 0 10px #00ff66; font-weight: bold;">
+                SISTEMA: COMPROMETIDO [16 / 16] - CONCLUÍDO
+            </div>
+            <div style="color: #ff0000; font-size: 1.3em; margin-top: 30px; font-weight: bold; text-shadow: 2px 2px #000; animation: blink 1s infinite; line-height: 1.4;">
+                ⚠️ ATENÇÃO: EVACUAR IMEDIATAMENTE!<br>SAIA PELA PORTA CENTRAL!
+            </div>
+        `;
+    }
 }
 
 // --- ESTAÇÕES COM MOLDURA NO MONITOR ---
 function createComputer(x, z, id) {
     const stationGroup = new THREE.Group();
 
-    // 1. MESA E PÉS
     const desk = new THREE.Mesh(
         new THREE.BoxGeometry(4, 0.2, 2.5), 
         new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5, roughness: 0.5 })
@@ -207,7 +306,6 @@ function createComputer(x, z, id) {
         stationGroup.add(leg);
     });
 
-    // 2. MONITOR (COM MOLDURA)
     const monitorGroup = new THREE.Group();
     monitorGroup.position.set(-0.5, 0, -0.4);
 
@@ -237,12 +335,10 @@ function createComputer(x, z, id) {
     
     stationGroup.add(monitorGroup);
 
-    // 3. TECLADO
     const keyboard = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.6), new THREE.MeshStandardMaterial({ color: 0x111111 }));
     keyboard.position.set(-0.5, 1.22, 0.5);
     stationGroup.add(keyboard);
 
-    // 4. GABINETE DETALHADO
     const towerGroup = new THREE.Group();
     towerGroup.position.set(1.3, 2.1, 0);
 
@@ -274,7 +370,6 @@ for(let x = -15; x <= 15; x += 10) { for(let z = -12; z <= 18; z += 10) { create
 // --- CONTROLES E LÓGICA ---
 const keys = {};
 
-// Variáveis de física para o pulo
 let verticalVelocity = 0;
 const gravity = -0.01;
 const jumpStrength = 0.25;
@@ -289,7 +384,6 @@ window.onkeyup = (e) => {
     if(e.key === " ") keys[" "] = false;
 };
 
-// Reativa o controle do mouse ao clicar na tela (resolve o problema do ESC)
 document.addEventListener('click', () => {
     const modalOpen = document.getElementById('question-modal').style.display === 'block';
     const isStart = (document.getElementById('start-screen') && document.getElementById('start-screen').style.display !== 'none');
@@ -310,13 +404,29 @@ document.addEventListener('mousedown', () => {
 });
 
 function openModal(id) {
-    const q = questions[id % questions.length];
-    document.getElementById('q-text').innerText = q.q;
-    const container = document.getElementById('options-container'); container.innerHTML = "";
-    q.opts.forEach((opt, i) => {
-        const btn = document.createElement('button'); btn.className = 'option-btn'; btn.innerText = opt;
+    const q = questions[id]; // Usa o ID fixo da máquina (0 a 15)
+    const qTextEl = document.getElementById('q-text');
+    qTextEl.innerText = q.q;
+    qTextEl.style.color = '#ffffff';
+    
+    // Mapeia opções mantendo quem é a correta
+    let options = q.opts.map((text, index) => ({ text, isCorrect: index === q.ans }));
+    
+    // Embaralha as opções (Fisher-Yates)
+    for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+    }
+    
+    const container = document.getElementById('options-container'); 
+    container.innerHTML = "";
+    
+    options.forEach((opt) => {
+        const btn = document.createElement('button'); 
+        btn.className = 'option-btn'; 
+        btn.innerText = opt.text;
         btn.onclick = () => {
-            if (i === q.ans) {
+            if (opt.isCorrect) {
                 currentMonitor.userData.solved = true; 
                 currentMonitor.material.emissive.set(0x00ff66);
                 
@@ -328,38 +438,29 @@ function openModal(id) {
                 });
 
                 solvedCount++; 
-                document.getElementById('progress').innerText = `SISTEMA: VULNERÁVEL [${solvedCount} / 16]`;
+                document.getElementById('progress').textContent = `SISTEMA: VULNERÁVEL [${solvedCount} / 16]`;
+                
                 if (solvedCount === 16) handleVictory();
                 closeModal();
-            } else { alert("ACESSO NEGADO!"); }
+            } else { 
+                totalTime -= 30;
+                if (totalTime < 0) totalTime = 0;
+                
+                qTextEl.innerText = "❌ ACESSO NEGADO! (-30s)";
+                qTextEl.style.color = "#ff3333";
+                
+                setTimeout(() => {
+                    if (document.getElementById('question-modal').style.display === 'block') {
+                        qTextEl.innerText = q.q;
+                        qTextEl.style.color = '#ffffff';
+                    }
+                }, 2000);
+            }
         };
         container.appendChild(btn);
     });
-    document.getElementById('question-modal').style.display = 'block'; document.exitPointerLock();
-}
-
-function handleVictory() {
-    doorMain.visible = false; 
-    hinge.visible = false; 
-    
-    const portalFinish = new THREE.Mesh(
-        new THREE.PlaneGeometry(6, 9), 
-        new THREE.MeshBasicMaterial({ color: 0xffffff })
-    );
-    portalFinish.position.set(0, 0, 0.05); 
-    doorGroup.add(portalFinish);
-    
-    ambient.intensity = 6; 
-    doorLight.intensity = 0;
-
-    // Atualiza o status para CONCLUÍDO e adiciona mensagem de evacuação
-    const progressEl = document.getElementById('progress');
-    progressEl.innerHTML = `
-        <div style="color: #00ff66;">SISTEMA: COMPROMETIDO [16 / 16] - CONCLUÍDO</div>
-        <div style="color: #ff0000; font-size: 1.2em; margin-top: 10px; font-weight: bold; text-shadow: 2px 2px #000; animation: blink 1s infinite;">
-            ⚠️ ATENÇÃO: EVACUAR IMEDIATAMENTE! SAIA PELA PORTA CENTRAL!
-        </div>
-    `;
+    document.getElementById('question-modal').style.display = 'block'; 
+    document.exitPointerLock();
 }
 
 function closeModal() { document.getElementById('question-modal').style.display = 'none'; document.body.requestPointerLock(); }
@@ -397,7 +498,6 @@ function animate() {
     ray.setFromCamera(new THREE.Vector2(0, 0), camera);
     const hits = ray.intersectObjects(computers);
 
-    // Esconde mensagens de interação após vencer
     if (solvedCount === 16) {
         interactionMsg.style.display = 'none';
     } else {
@@ -405,6 +505,16 @@ function animate() {
             interactionMsg.style.display = 'block';
         } else {
             interactionMsg.style.display = 'none';
+        }
+    }
+
+    // ADICIONADO: Se o modal de perguntas estiver aberto, checa se o jogador andou para longe da mesa ativa
+    const questionModal = document.getElementById('question-modal');
+    if (questionModal && questionModal.style.display === 'block' && currentMonitor) {
+        // Pega a posição da bancada (parent do monitorGroup, que é parent da tela)
+        const currentDeskPos = currentMonitor.parent.parent.position;
+        if (camera.position.distanceTo(currentDeskPos) > 6.0) {
+            closeModal(); // Fecha o terminal automaticamente por distância
         }
     }
 
@@ -419,7 +529,9 @@ function animate() {
     camera.position.z = Math.max(-24.9, Math.min(23, camera.position.z));
 
     if (solvedCount === 16 && camera.position.z < -24.2) {
-        isGameOver = true; document.exitPointerLock(); victoryScreen.style.display = 'flex';
+        isGameOver = true; 
+        document.exitPointerLock(); 
+        victoryScreen.style.display = 'flex';
     }
     
     if (solvedCount < 16) doorLight.intensity = 12 + Math.sin(Date.now() * 0.005) * 6;

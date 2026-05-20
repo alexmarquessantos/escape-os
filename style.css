@@ -6,6 +6,7 @@ body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courie
     z-index: 1000; display: flex; justify-content: center; align-items: center;
 }
 
+
 #start-screen { background: radial-gradient(circle, #0a0a0a 0%, #000 100%); color: #00ff66; text-align: center; }
 
 /* CARTA DE MISSÃO */
