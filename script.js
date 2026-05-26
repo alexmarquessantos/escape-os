@@ -1,3 +1,17 @@
+let listener = new THREE.AudioListener();
+let soundAmbiente;
+let soundAlarme;
+let soundAcerto; 
+let soundErro;   
+let audioLoader = new THREE.AudioLoader();
+// Carregue o alarme (faça isso logo abaixo do carregamento do som ambiente)
+audioLoader.load('audio/alarme.mp3', (buffer) => {
+    soundAlarme.setBuffer(buffer);
+    soundAlarme.setLoop(true); // Isso faz ele tocar repetidamente
+    soundAlarme.setVolume(0.4);
+
+});
+
 // --- GESTÃO DE TELAS ---
 const startScreen = document.getElementById('start-screen');
 const briefingModal = document.getElementById('briefing-modal');
@@ -21,7 +35,7 @@ interactionMsg.innerText = '[ CLIQUE PARA ACESSAR TERMINAL ]';
 document.body.appendChild(interactionMsg);
 
 // --- ESTADO DO CRONÔMETRO GLOBAL ---
-let totalTime = 600; // 10 minutos em segundos
+let totalTime = 900; // 10 minutos em segundos
 let timerInterval = null;
 let isGameOver = false;
 
@@ -55,6 +69,7 @@ function startGlobalTimer() {
 // Função executada em caso de derrota por tempo
 function handleKernelPanic() {
     isGameOver = true;
+    if (soundAlarme) soundAlarme.stop();
     clearInterval(timerInterval); 
     document.exitPointerLock(); // Devolve o cursor do mouse para o usuário
     
@@ -76,11 +91,32 @@ function handleKernelPanic() {
 startButton.onclick = () => { 
     startScreen.style.display = "none"; 
     briefingModal.style.display = "flex"; 
+
+    // Adicione este bloco para liberar o áudio:
+    const audioContext = THREE.AudioContext.getContext();
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log("Contexto de áudio liberado!");
+            if (soundAmbiente) soundAmbiente.play();
+            if (soundAlarme) soundAlarme.play();
+        });
+    } else {
+        // Se já não estiver suspenso, apenas toca
+        if (soundAmbiente) soundAmbiente.play();
+        if (soundAlarme) soundAlarme.play();
+    }
 };
 
 closeBriefing.onclick = () => { 
     briefingModal.style.display = "none"; 
     document.body.requestPointerLock(); 
+
+    const timerEl = document.getElementById('global-timer');
+    if (timerEl) {
+        timerEl.style.display = 'block'; // Garante que o cronômetro aparece
+    }
+
+    if (soundAmbiente) soundAmbiente.play();
     
     // Inicializa o HUD limpando resíduos estáticos com textContent
     const progressEl = document.getElementById('progress');
@@ -104,6 +140,51 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050505);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 2, 18);
+
+// 1. Conecta o "ouvido"
+camera.add(listener); 
+
+// 2. Configura Som Ambiente
+soundAmbiente = new THREE.Audio(listener);
+audioLoader.load('audio/ambient.mp3', (buffer) => {
+    soundAmbiente.setBuffer(buffer);
+    soundAmbiente.setLoop(true);
+    soundAmbiente.setVolume(0.2);
+});
+
+soundAlarme = new THREE.Audio(listener);
+audioLoader.load('audio/alarme.mp3', (buffer) => {
+    soundAlarme.setBuffer(buffer);
+    soundAlarme.setLoop(true);
+    soundAlarme.setVolume(0.4);
+});
+
+// ADICIONE ESTAS LINHAS:
+soundAcerto = new THREE.Audio(listener);
+audioLoader.load(
+    'audio/acerto.mp3', 
+    (buffer) => {
+        soundAcerto.setBuffer(buffer);
+        soundAcerto.setVolume(0.5);
+        console.log("Som de acerto carregado com sucesso!");
+    },
+    undefined, // Progresso
+    (err) => {
+        console.error("ERRO AO CARREGAR O SOM DE ACERTO:", err);
+    }
+);
+
+soundErro = new THREE.Audio(listener);
+audioLoader.load(
+    'audio/erro.mp3', 
+    (buffer) => {
+        soundErro.setBuffer(buffer);
+        soundErro.setVolume(0.5);
+    },
+    undefined, 
+    (err) => { console.error("ERRO AO CARREGAR O SOM DE ERRO:", err); }
+);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -250,6 +331,10 @@ scene.add(scannerLight);
 
 function handleVictory() {
     if (timerInterval) clearInterval(timerInterval); // Interrompe o cronômetro na vitória
+    
+    if (soundAlarme && soundAlarme.isPlaying) {
+        soundAlarme.stop();
+    }
     doorMain.visible = false; 
     hinge.visible = false; 
     scannerLight.material.color.set(0x00ff00); 
@@ -287,10 +372,40 @@ function handleVictory() {
     }
 }
 
+function addNumberToTower(towerGroup, number) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 128;
+    canvas.height = 128;
+    
+    // Mude para 'white' para que a cor seja aplicada corretamente depois
+    context.fillStyle = 'white'; 
+    context.font = 'Bold 80px Arial';
+    context.textAlign = 'center';
+    context.fillText(number.toString(), 64, 90);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    
+    const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.5, 0.5),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true })
+    );
+    
+    // Atribua o nome APÓS a criação do objeto
+    plane.name = "numeroLateral"; 
+    
+    plane.position.set(-0.501, 0, 0);
+    plane.rotation.y = -Math.PI / 2;
+    towerGroup.add(plane);
+}
+
+
+
 // --- ESTAÇÕES COM MOLDURA NO MONITOR ---
 function createComputer(x, z, id) {
     const stationGroup = new THREE.Group();
 
+    // --- MESA ---
     const desk = new THREE.Mesh(
         new THREE.BoxGeometry(4, 0.2, 2.5), 
         new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5, roughness: 0.5 })
@@ -298,6 +413,7 @@ function createComputer(x, z, id) {
     desk.position.y = 1.1;
     stationGroup.add(desk);
 
+    // --- PERNAS DA MESA ---
     const legMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8 });
     const legPositions = [{x:-1.8, z:-1.1}, {x:1.8, z:-1.1}, {x:-1.8, z:1.1}, {x:1.8, z:1.1}];
     legPositions.forEach(pos => {
@@ -306,6 +422,7 @@ function createComputer(x, z, id) {
         stationGroup.add(leg);
     });
 
+    // --- MONITOR ---
     const monitorGroup = new THREE.Group();
     monitorGroup.position.set(-0.5, 0, -0.4);
 
@@ -335,12 +452,21 @@ function createComputer(x, z, id) {
     
     stationGroup.add(monitorGroup);
 
+    // --- TECLADO ---
     const keyboard = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.6), new THREE.MeshStandardMaterial({ color: 0x111111 }));
     keyboard.position.set(-0.5, 1.22, 0.5);
     stationGroup.add(keyboard);
 
+    // --- CHAMADA DO MOUSE ---
+    createMouse(stationGroup); // <--- ADICIONE ESTA LINHA AQUI
+
+    // --- GABINETE (TOWER) ---
     const towerGroup = new THREE.Group();
+    towerGroup.name = "gabineteGroup"; // <--- Adicione esta linha
     towerGroup.position.set(1.3, 2.1, 0);
+
+    // Adiciona o número na torre
+    addNumberToTower(towerGroup, id + 1); 
 
     const towerBody = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2, 1.8), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.3 }));
     towerGroup.add(towerBody);
@@ -348,14 +474,25 @@ function createComputer(x, z, id) {
     for(let i = 0; i < 5; i++) {
         const grill = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.05, 0.05), new THREE.MeshBasicMaterial({ color: 0x000000 }));
         grill.position.set(0, 0.5 - (i * 0.2), 0.91);
+        grill.name = "grelhaFrontal";
         towerGroup.add(grill);
     }
 
     const powerBtn = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
     powerBtn.position.set(0, 0.8, 0.91);
+    powerBtn.name = "ledGabinete"; // <--- IMPORTANTE: definir o nome
     towerGroup.add(powerBtn);
 
-    const pcLed = new THREE.Mesh(new THREE.BoxGeometry(0.02, 1.2, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+   // --- GABINETE (PAINEL LATERAL AGORA INTEGRADO E PRETO) ---
+    const pcLed = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 1.2, 1), 
+        new THREE.MeshStandardMaterial({ 
+            color: 0x1a1a1a,      // Cor idêntica à do towerBody
+            metalness: 0.7,       // Mantém o mesmo brilho metálico
+            roughness: 0.3 
+        })
+    );
+    pcLed.name = "painelCentral"; 
     pcLed.position.set(0.41, 0, 0);
     towerGroup.add(pcLed);
 
@@ -364,8 +501,17 @@ function createComputer(x, z, id) {
     scene.add(stationGroup);
 }
 
+
+
+// --- CRIAÇÃO DAS ESTAÇÕES (ORDEM INVERTIDA) ---
 let pcIdx = 0;
-for(let x = -15; x <= 15; x += 10) { for(let z = -12; z <= 18; z += 10) { createComputer(x, z, pcIdx++); } }
+// Começamos na frente (z=18) e vamos para o fundo (z=-12) para que os primeiros PCs sejam os mais próximos
+for(let z = 18; z >= -12; z -= 10) { 
+    // Começamos na direita (x=15) e vamos para a esquerda (x=-15) para o primeiro PC ser o da direita
+    for(let x = 15; x >= -15; x -= 10) { 
+        createComputer(x, z, pcIdx++); 
+    } 
+}
 
 // --- CONTROLES E LÓGICA ---
 const keys = {};
@@ -403,6 +549,24 @@ document.addEventListener('mousedown', () => {
     }
 });
 
+function createMouse(stationGroup) {
+    // Corpo principal do mouse (forma levemente curva)
+    const mouseBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.15, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.5, roughness: 0.5 })
+    );
+    mouseBody.position.set(0.6, 1.3, 0.4); // Posicionado à direita do teclado
+    stationGroup.add(mouseBody);
+
+    // Botão do mouse (um detalhe no topo)
+    const mouseBtn = new THREE.Mesh(
+        new THREE.BoxGeometry(0.25, 0.05, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0x333333 })
+    );
+    mouseBtn.position.set(0.6, 1.38, 0.35);
+    stationGroup.add(mouseBtn);
+}
+
 function openModal(id) {
     const q = questions[id]; // Usa o ID fixo da máquina (0 a 15)
     const qTextEl = document.getElementById('q-text');
@@ -425,42 +589,71 @@ function openModal(id) {
         const btn = document.createElement('button'); 
         btn.className = 'option-btn'; 
         btn.innerText = opt.text;
-        btn.onclick = () => {
-            if (opt.isCorrect) {
-                currentMonitor.userData.solved = true; 
-                currentMonitor.material.emissive.set(0x00ff66);
-                
-                const tower = currentMonitor.parent.parent.children.find(c => c instanceof THREE.Group && c !== currentMonitor.parent);
-                tower.children.forEach(part => {
-                    if(part.material && (part.geometry.type === "BoxGeometry" || part.geometry.type === "SphereGeometry") && part.material.color.getHex() === 0xff0000) {
-                        part.material.color.set(0x00ff66);
-                    }
-                });
-
-                solvedCount++; 
-                document.getElementById('progress').textContent = `SISTEMA: VULNERÁVEL [${solvedCount} / 16]`;
-                
-                if (solvedCount === 16) handleVictory();
-                closeModal();
-            } else { 
-                totalTime -= 30;
-                if (totalTime < 0) totalTime = 0;
-                
-                qTextEl.innerText = "❌ ACESSO NEGADO! (-30s)";
-                qTextEl.style.color = "#ff3333";
-                
-                setTimeout(() => {
-                    if (document.getElementById('question-modal').style.display === 'block') {
-                        qTextEl.innerText = q.q;
-                        qTextEl.style.color = '#ffffff';
-                    }
-                }, 2000);
+       btn.onclick = () => {
+    if (opt.isCorrect) {
+        // --- SOM DE ACERTO ---
+        if (soundAcerto) {
+            if (soundAcerto.isPlaying) soundAcerto.stop();
+            soundAcerto.play();
+        }
+        
+        // --- LÓGICA DE SUCESSO ---
+        currentMonitor.userData.solved = true; 
+        currentMonitor.material.emissive.set(0x00ff66);
+        
+        // --- MUDANÇA DO LED PARA VERDE ---
+        // Acessa o grupo da estação, encontra o gabinete e muda o led
+        const stationGroup = currentMonitor.parent.parent;
+        const towerGroup = stationGroup.children.find(child => child.type === 'Group' && child.position.x === 1.3);
+        if (towerGroup) {
+            markAsSolved(towerGroup);
+        }
+        
+        solvedCount++; 
+        document.getElementById('progress').textContent = `SISTEMA: VULNERÁVEL [${solvedCount} / 16]`;
+        
+        if (solvedCount === 16) handleVictory();
+        closeModal();
+    } else { 
+        // --- SOM DE ERRO ---
+        if (soundErro) {
+            if (soundErro.isPlaying) soundErro.stop();
+            soundErro.play();
+        }
+        
+        totalTime -= 30;
+        if (totalTime < 0) totalTime = 0;
+        
+        qTextEl.innerText = "❌ ACESSO NEGADO! (-30s)";
+        qTextEl.style.color = "#ff3333";
+        
+        // Reset do texto após 2 segundos
+        setTimeout(() => {
+            if (document.getElementById('question-modal').style.display === 'block') {
+                qTextEl.innerText = q.q;
+                qTextEl.style.color = '#ffffff';
             }
-        };
+        }, 2000);
+    }
+};
         container.appendChild(btn);
     });
     document.getElementById('question-modal').style.display = 'block'; 
     document.exitPointerLock();
+}
+
+
+function markAsSolved(towerGroup) {
+    towerGroup.traverse((child) => {
+        // 1. LED do topo fica VERDE
+        if (child.name === "ledGabinete") {
+            child.material.color.set(0x00ff00);
+        }
+        // 4. Número
+        if (child.name === "numeroLateral") {
+            child.material.color.set(0x00ff66);
+        }
+    });
 }
 
 function closeModal() { document.getElementById('question-modal').style.display = 'none'; document.body.requestPointerLock(); }
